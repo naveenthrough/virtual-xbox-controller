@@ -11,7 +11,6 @@ This project uses a lightweight **Python server** to accept inputs over your loc
 * **True Gamepad Emulation (Windows):** Emulates a genuine hardware Xbox 360 controller. Games like FIFA, Rocket League, Cyberpunk, and emulators will see it instantly without any extra key-mapping software.
 * **Dual-Mode System Architecture:** * **Gamepad Mode:** Provides joysticks, triggers (LT/RT), bumpers (LB/RB), D-pad, and face buttons (A/B/X/Y).
   * **Precision Trackpad Mode:** Controls your laptop mouse cursor with premium, sub-pixel micro-precision algorithms and kinetic velocity acceleration.
-* **Built-in Scroll Strip:** A dedicated tactile strip allows you to scroll vertically through pages and menus effortlessly.
 * **Zero Mobile App Installation:** Uses modern WebSockets. Simply scan the generated QR code to open the controller interface on any Android or iOS device instantly.
 * **Persistent Screen Wake-Lock:** Includes background script triggers that prevent your phone's screen from dimming or sleeping mid-game.
 * **Automatic OS Fallback:** If running on macOS/Linux (or on Windows without the driver installed), the script gracefully steps back to mouse/keyboard simulation mode using `pynput`.
