@@ -1,0 +1,15 @@
+# Virtual PS4 Controller — Python dependencies
+# Install with:  pip install -r requirements.txt
+
+# Core — required (HTTP server + WebSocket support)
+aiohttp>=3.9.0
+
+# Mouse & keyboard simulation — cross-platform fallback
+pynput>=1.7.0
+
+# Optional — QR code in terminal for easy phone connection
+qrcode[pil]>=7.4.0
+
+# Optional — Windows only: true virtual Xbox 360 gamepad
+# Requires ViGEmBus driver: https://github.com/ViGEm/ViGEmBus/releases/latest
+# vgamepad>=0.1.0

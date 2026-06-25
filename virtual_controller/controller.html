@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Virtual Xbox Controller</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg: #050508;
+    --glow: #107c10; /* Xbox Green */
+    --btn-outline: rgba(255, 255, 255, 0.35);
+    --btn-outline-active: #107c10;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    font-family: 'Orbitron', monospace;
+    user-select: none;
+    touch-action: none;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  /* ── Connection Status Bar ───────────────────── */
+  #conn-bar {
+    width: 100%;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    z-index: 100;
+    flex-shrink: 0;
+  }
+  .conn-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #444;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .conn-dot.ok    { background: var(--glow); box-shadow: 0 0 6px var(--glow); }
+  .conn-dot.error { background: #e05c5c; box-shadow: 0 0 6px #e05c5c; }
+  #conn-text { color: rgba(180,190,220,0.5); flex-grow: 1; }
+  
+  /* ── Customize Toolbar ───────────────────────── */
+  #edit-toggle {
+    background: none; border: 1px solid rgba(255,255,255,0.2);
+    color: white; padding: 3px 10px; border-radius: 4px; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  }
+  #edit-toggle.active { background: var(--glow); border-color: var(--glow); }
+
+  #size-controls {
+    display: none; gap: 6px; margin-left: 10px;
+    align-items: center; color: #aaa; font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  }
+  .size-btn {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
+    color: white; width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
+    font-weight: bold; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Mobile Vertical Canvas ──────────────────── */
+  #game-canvas {
+    position: relative;
+    width: 100%;
+    flex-grow: 1;
+    background: radial-gradient(circle at 50% 50%, rgba(16,124,16,0.06) 0%, transparent 80%);
+  }
+
+  /* ── Transparent Outlined Button Style ───────── */
+  .control-element {
+    position: absolute;
+    touch-action: none;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Layout Editing View Styles */
+  body.edit-mode .control-element {
+    outline: 1px dashed rgba(0, 212, 255, 0.6) !important;
+    background: rgba(0, 212, 255, 0.04) !important;
+  }
+  body.edit-mode .control-element.selected-el {
+    outline: 2px solid #00d4ff !important;
+    background: rgba(0, 212, 255, 0.12) !important;
+  }
+
+  .btn-out {
+    background: transparent;
+    border: 2px solid var(--btn-outline);
+    border-radius: 50%;
+    color: rgba(255,255,255,0.85);
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.05s, transform 0.05s, border-color 0.05s;
+  }
+  .btn-out.pressed {
+    border-color: var(--btn-outline-active);
+    background: rgba(16, 124, 16, 0.25);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(16, 124, 16, 0.5);
+  }
+
+  /* ── D-Pad Styling ───────────────────────────── */
+  .dpad-container {
+    width: 100%; height: 100%;
+    position: relative;
+    border: 2px solid var(--btn-outline);
+    border-radius: 50%;
+  }
+  .dpad-btn {
+    position: absolute;
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 16px;
+  }
+  .dpad-btn.pressed { color: var(--btn-outline-active); background: rgba(16,124,16,0.15); }
+  
+  #DU { top: 0; left: 33%; width: 34%; height: 33%; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  #DD { bottom: 0; left: 33%; width: 34%; height: 33%; border-top: 1px solid rgba(255,255,255,0.08); }
+  #DL { left: 0; top: 33%; width: 33%; height: 34%; border-right: 1px solid rgba(255,255,255,0.08); }
+  #DR { right: 0; top: 33%; width: 33%; height: 34%; border-left: 1px solid rgba(255,255,255,0.08); }
+
+  /* ── Thumbsticks ──────────────────────────────── */
+  .stick-base {
+    width: 100%; height: 100%;
+    border: 2px solid var(--btn-outline);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.01);
+  }
+  .stick-knob {
+    width: 52%; height: 52%;
+    border: 2px solid var(--btn-outline);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+  }
+  .stick-base.l3r3-pressed { border-color: var(--btn-outline-active); background: rgba(16,124,16,0.2); }
+
+  /* ── Optimized Square Trackpad Area ─────────────── */
+  .tp-area {
+    width: 100%; height: 100%;
+    border: 2px solid var(--btn-outline);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .tp-area.active { border-color: var(--btn-outline-active); background: rgba(16,124,16,0.08); }
+  .tp-label { font-family:'Share Tech Mono', monospace; font-size:9px; color:rgba(255,255,255,0.25); pointer-events:none; text-align: center; padding: 4px; }
+  .tp-cursor {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    border: 1px solid var(--btn-outline-active); background: rgba(16,124,16,0.5);
+    transform: translate(-50%, -50%); opacity: 0; pointer-events: none;
+  }
+  .tp-area.active .tp-cursor { opacity: 1; }
+
+  /* Small oblong button modifier */
+  .btn-small { border-radius: 12px !important; font-size: 10px !important; }
+
+  /* ── PERFECT ERGONOMIC GRID POSITIONS (VERTICAL SCREEN) ── */
+  
+  /* Top Layer: Bumpers & Triggers (Split left and right side cleanly) */
+  #el-L1 { left: 5%;   top: 14%; width: 65px; height: 42px; }
+  #el-L2 { left: 24%;  top: 14%; width: 65px; height: 42px; }
+  #el-R1 { right: 5%;  top: 14%; width: 65px; height: 42px; }
+  #el-R2 { right: 24%; top: 14%; width: 65px; height: 42px; }
+
+  /* Upper Center: System Controls */
+  #el-SHARE   { left: 16%; top: 4%; width: 55px; height: 28px; }
+  #el-OPTIONS { right:16%; top: 4%; width: 55px; height: 28px; }
+  #el-PS      { left: 50%; top: 3%; width: 44px; height: 44px; transform: translateX(-50%); }
+
+  /* Mid Center Layer: Compact Square Trackpad (Stays out of thumb space) */
+  #el-TRACKPAD { left: 50%; top: 25%; width: 120px; height: 120px; transform: translateX(-50%); }
+
+  /* Primary Control Layer: Joysticks (Perfect Rest Position for Left & Right Thumbs) */
+  #el-STICK_L  { left: 8%;  top: 48%; width: 90px; height: 90px; }
+  #el-STICK_R  { right: 8%; top: 48%; width: 90px; height: 90px; }
+  
+  /* Lower Layer: D-Pad and Face Buttons (Shifted downwards so they don't block joysticks) */
+  #el-DPAD     { left: 12%; bottom: 8%;  width: 95px; height: 95px; }
+  #el-ABXY     { right: 8%;  bottom: 6%;  width: 125px; height: 125px; }
+
+  /* ABXY Cluster Sub-Layout Grid */
+  .abxy-cluster { width: 100%; height: 100%; position: relative; }
+  .abxy-cluster .btn-out { position: absolute; width: 33%; height: 33%; font-size: 13px; }
+  #CROSS    { bottom: 0; left: 33%; } /* A Button */
+  #CIRCLE   { right: 0; top: 33%; }   /* B Button */
+  #SQUARE   { left: 0; top: 33%; }    /* X Button */
+  #TRIANGLE { top: 0; left: 33%; }    /* Y Button */
+
+</style>
+</head>
+<body>
+
+<div id="conn-bar">
+  <div class="conn-dot" id="conn-dot"></div>
+  <span id="conn-text">Connecting…</span>
+  
+  <button id="edit-toggle" onclick="toggleEditMode()">⚙️ Customize Controls</button>
+  <div id="size-controls">
+    <button class="size-btn" onclick="adjustSize(-6)">-</button>
+    <button class="size-btn" onclick="adjustSize(6)">+</button>
+  </div>
+  
+  <span id="conn-backend"></span>
+</div>
+
+<div id="game-canvas">
+
+  <div class="control-element" id="el-TRACKPAD">
+    <div class="tp-area" id="trackpad">
+      <span class="tp-label">SQUARE<br>TRACKPAD</span>
+      <div class="tp-cursor" id="tp-cursor"></div>
+    </div>
+  </div>
+
+  <div class="control-element" id="el-L1"><button class="btn-out btn-small" id="L1">LB</button></div>
+  <div class="control-element" id="el-L2"><button class="btn-out btn-small" id="L2">LT</button></div>
+  <div class="control-element" id="el-R1"><button class="btn-out btn-small" id="R1">RB</button></div>
+  <div class="control-element" id="el-R2"><button class="btn-out btn-small" id="R2">RT</button></div>
+
+  <div class="control-element" id="el-SHARE"><button class="btn-out btn-small" id="SHARE">BACK</button></div>
+  <div class="control-element" id="el-OPTIONS"><button class="btn-out btn-small" id="OPTIONS">START</button></div>
+  <div class="control-element" id="el-PS"><button class="btn-out" id="PS">🪟</button></div>
+
+  <div class="control-element" id="el-STICK_L">
+    <div class="stick-base" id="stickL"><div class="stick-knob" id="knobL"></div></div>
+  </div>
+
+  <div class="control-element" id="el-STICK_R">
+    <div class="stick-base" id="stickR"><div class="stick-knob" id="knobR"></div></div>
+  </div>
+
+  <div class="control-element" id="el-DPAD">
+    <div class="dpad-container">
+      <div class="dpad-btn" id="DU">▲</div>
+      <div class="dpad-btn" id="DD">▼</div>
+      <div class="dpad-btn" id="DL">◀</div>
+      <div class="dpad-btn" id="DR">▶</div>
+    </div>
+  </div>
+
+  <div class="control-element" id="el-ABXY">
+    <div class="abxy-cluster">
+      <button class="btn-out" id="CROSS">A</button>
+      <button class="btn-out" id="CIRCLE">B</button>
+      <button class="btn-out" id="SQUARE">X</button>
+      <button class="btn-out" id="TRIANGLE">Y</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   WebSocket Communication
+═══════════════════════════════════════════════════════════════════════ */
+const WS_URL = `ws://${location.hostname}:${location.port}/ws`;
+let ws = null;
+let reconnTimer = null;
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(obj));
+  }
+}
+
+function setStatus(state, detail) {
+  const bar  = document.getElementById('conn-bar');
+  const dot  = document.getElementById('conn-dot');
+  const txt  = document.getElementById('conn-text');
+  dot.className = 'conn-dot ' + state;
+  bar.className = (state === 'error') ? 'error' : 'ok';
+  txt.textContent = detail;
+}
+
+function connect() {
+  clearTimeout(reconnTimer);
+  setStatus('', 'Connecting to laptop…');
+
+  try { ws = new WebSocket(WS_URL); } catch(e) {
+    setStatus('error', 'Connection failed');
+    reconnTimer = setTimeout(connect, 3000);
+    return;
+  }
+
+  ws.onopen = () => {
+    setStatus('ok', 'Connected and Ready!');
+    send({ type: 'ping' });
+  };
+
+  ws.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'pong' && d.backend) {
+        document.getElementById('conn-backend').textContent = '[' + d.backend + ']';
+      }
+    } catch(_) {}
+  };
+
+  ws.onclose = () => {
+    setStatus('error', 'Disconnected! Retrying…');
+    reconnTimer = setTimeout(connect, 2000);
+  };
+}
+
+connect();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Custom Layout Manager (Drag and Size Saving Engine)
+═══════════════════════════════════════════════════════════════════════ */
+let isEditMode = false;
+let selectedElement = null;
+let dragOffset = { x: 0, y: 0 };
+
+function loadSavedLayout() {
+  document.querySelectorAll('.control-element').forEach(el => {
+    const saved = localStorage.getItem('xbox_layout_' + el.id);
+    if (saved) {
+      const config = JSON.parse(saved);
+      el.style.left = config.left;
+      el.style.top = config.top;
+      el.style.width = config.width;
+      el.style.height = config.height;
+    }
+  });
+}
+
+function toggleEditMode() {
+  isEditMode = !isEditMode;
+  const btn = document.getElementById('edit-toggle');
+  const sizeCtrls = document.getElementById('size-controls');
+  
+  if (isEditMode) {
+    document.body.classList.add('edit-mode');
+    btn.classList.add('active');
+    btn.textContent = '💾 Save Controls';
+    sizeCtrls.style.display = 'flex';
+  } else {
+    document.body.classList.remove('edit-mode');
+    btn.classList.remove('active');
+    btn.textContent = '⚙️ Customize Controls';
+    sizeCtrls.style.display = 'none';
+    if(selectedElement) selectedElement.classList.remove('selected-el');
+    selectedElement = null;
+  }
+}
+
+function adjustSize(amount) {
+  if (!selectedElement) return;
+  let currentW = selectedElement.offsetWidth;
+  let currentH = selectedElement.offsetHeight;
+  
+  let newW = currentW + amount;
+  let newH = currentH + amount;
+  
+  if (newW > 35 && newW < 350) {
+    selectedElement.style.width = newW + 'px';
+    selectedElement.style.height = newH + 'px';
+    saveElementPosition(selectedElement);
+  }
+}
+
+function saveElementPosition(el) {
+  const config = {
+    left: el.style.left,
+    top: el.style.top,
+    width: el.style.width,
+    height: el.style.height
+  };
+  localStorage.setItem('xbox_layout_' + el.id, JSON.stringify(config));
+}
+
+document.getElementById('game-canvas').addEventListener('pointerdown', e => {
+  if (!isEditMode) return;
+  const targetEl = e.target.closest('.control-element');
+  if (!targetEl) return;
+  
+  if (selectedElement) selectedElement.classList.remove('selected-el');
+  selectedElement = targetEl;
+  selectedElement.classList.add('selected-el');
+  
+  const rect = selectedElement.getBoundingClientRect();
+  const canvasRect = document.getElementById('game-canvas').getBoundingClientRect();
+  
+  dragOffset.x = e.clientX - rect.left;
+  dragOffset.y = e.clientY - rect.top;
+  
+  selectedElement.setPointerCapture(e.pointerId);
+});
+
+document.getElementById('game-canvas').addEventListener('pointermove', e => {
+  if (!isEditMode || !selectedElement || !selectedElement.hasPointerCapture(e.pointerId)) return;
+  
+  const canvasRect = document.getElementById('game-canvas').getBoundingClientRect();
+  let x = e.clientX - canvasRect.left - dragOffset.x;
+  let y = e.clientY - canvasRect.top - dragOffset.y;
+  
+  x = Math.max(0, Math.min(x, canvasRect.width - selectedElement.offsetWidth));
+  y = Math.max(0, Math.min(y, canvasRect.height - selectedElement.offsetHeight));
+  
+  selectedElement.style.left = (x / canvasRect.width * 100) + '%';
+  selectedElement.style.top = (y / canvasRect.height * 100) + '%';
+});
+
+document.getElementById('game-canvas').addEventListener('pointerup', e => {
+  if (selectedElement && isEditMode) {
+    saveElementPosition(selectedElement);
+  }
+});
+
+loadSavedLayout();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Action Buttons Controller Mapping
+═══════════════════════════════════════════════════════════════════════ */
+const DIGITAL_IDS = ['CROSS','CIRCLE','SQUARE','TRIANGLE','L1','R1','SHARE','OPTIONS','PS'];
+const held = new Set();
+
+function buttonDown(id) {
+  if (isEditMode) return;
+  if (held.has(id)) return;
+  held.add(id);
+  const el = document.getElementById(id);
+  if (el) el.classList.add('pressed');
+  send({ type:'button', id, pressed:true });
+}
+
+function buttonUp(id) {
+  if (!held.has(id)) return;
+  held.delete(id);
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('pressed');
+  send({ type:'button', id, pressed:false });
+}
+
+DIGITAL_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('pointerdown', e => { 
+    if(isEditMode) return;
+    e.preventDefault(); el.setPointerCapture(e.pointerId); buttonDown(id); 
+  });
+  el.addEventListener('pointerup',     () => buttonUp(id));
+  el.addEventListener('pointerleave',  () => buttonUp(id));
+  el.addEventListener('pointercancel', () => buttonUp(id));
+  el.addEventListener('contextmenu',   e => e.preventDefault());
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   D-Pad Controller Mapping
+═══════════════════════════════════════════════════════════════════════ */
+const DPAD_IDS = ['DU', 'DD', 'DL', 'DR'];
+DPAD_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', e => {
+    if(isEditMode) return;
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    el.classList.add('pressed');
+    send({ type:'button', id, pressed:true });
+  });
+  function up() {
+    el.classList.remove('pressed');
+    send({ type:'button', id, pressed:false });
+  }
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointerleave', up);
+  el.addEventListener('pointercancel', up);
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LT & RT Triggers
+═══════════════════════════════════════════════════════════════════════ */
+['L2','R2'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', e => {
+    if(isEditMode) return;
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    el.classList.add('pressed');
+    send({ type:'trigger', id, value:1.0 });
+  });
+  function up() {
+    el.classList.remove('pressed');
+    send({ type:'trigger', id, value:0.0 });
+  }
+  el.addEventListener('pointerup',     up);
+  el.addEventListener('pointerleave',  up);
+  el.addEventListener('pointercancel', up);
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Dual Analog Joysticks Wiring
+═══════════════════════════════════════════════════════════════════════ */
+const STICK_DEADZONE = 0.08;
+
+function setupStick(baseId, knobId, stickName, l3r3Id) {
+  const base = document.getElementById(baseId);
+  const knob = document.getElementById(knobId);
+  let dragging = false;
+  let pointerDown = false;
+  let tapStartTime = 0;
+  let tapMoved = false;
+
+  base.addEventListener('pointerdown', e => {
+    if(isEditMode) return;
+    e.preventDefault();
+    base.setPointerCapture(e.pointerId);
+    dragging = true;
+    pointerDown = true;
+    tapStartTime = Date.now();
+    tapMoved = false;
+  });
+
+  base.addEventListener('pointermove', e => {
+    if (!dragging || isEditMode) return;
+    const rect = base.getBoundingClientRect();
+    const cx   = rect.left + rect.width / 2;
+    const cy   = rect.top  + rect.height / 2;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    
+    const maxTravel = rect.width / 3.8; 
+    if (dist > 4) tapMoved = true;
+
+    if (dist > maxTravel) { dx = dx / dist * maxTravel; dy = dy / dist * maxTravel; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    let nx = dx / maxTravel;
+    let ny = dy / maxTravel;
+    if (Math.abs(nx) < STICK_DEADZONE) nx = 0;
+    if (Math.abs(ny) < STICK_DEADZONE) ny = 0;
+    send({ type:'stick', id:stickName, x:nx, y:ny });
+  });
+
+  function release() {
+    if (!dragging) return;
+    dragging = false;
+    knob.style.transform = '';
+    send({ type:'stick', id:stickName, x:0, y:0 });
+
+    if (pointerDown && !tapMoved && Date.now() - tapStartTime < 250) {
+      base.classList.add('l3r3-pressed');
+      send({ type:'button', id:l3r3Id, pressed:true });
+      setTimeout(() => {
+        base.classList.remove('l3r3-pressed');
+        send({ type:'button', id:l3r3Id, pressed:false });
+      }, 100);
+    }
+    pointerDown = false;
+  }
+
+  base.addEventListener('pointerup',     release);
+  base.addEventListener('pointercancel', release);
+}
+
+setupStick('stickL', 'knobL', 'LEFT',  'L3');
+setupStick('stickR', 'knobR', 'RIGHT', 'R3');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Mouse Trackpad System
+═══════════════════════════════════════════════════════════════════════ */
+const pad       = document.getElementById('trackpad');
+const tpCursor  = document.getElementById('tp-cursor');
+const SENSITIVITY   = 2.2;
+const TAP_THRESHOLD = 8;
+const TAP_TIME_MS   = 220;
+
+let tpTouches = {};
+
+pad.addEventListener('pointerdown', e => {
+  if(isEditMode) return;
+  e.preventDefault();
+  pad.setPointerCapture(e.pointerId);
+  pad.classList.add('active');
+
+  const rect    = pad.getBoundingClientRect();
+  const localX  = e.clientX - rect.left;
+  const isRight = localX > pad.offsetWidth / 2;
+
+  tpTouches[e.pointerId] = {
+    startX: e.clientX, startY: e.clientY,
+    lastX:  e.clientX, lastY:  e.clientY,
+    startTime: Date.now(),
+    moved: false,
+    rightHalf: isRight,
+  };
+
+  tpCursor.style.left = localX + 'px';
+  tpCursor.style.top  = (e.clientY - rect.top) + 'px';
+});
+
+pad.addEventListener('pointermove', e => {
+  const t = tpTouches[e.pointerId];
+  if (!t || isEditMode) return;
+  e.preventDefault();
+
+  const dx = e.clientX - t.lastX;
+  const dy = e.clientY - t.lastY;
+  t.lastX = e.clientX;
+  t.lastY = e.clientY;
+
+  const totalMoved = Math.hypot(e.clientX - t.startX, e.clientY - t.startY);
+  if (totalMoved > TAP_THRESHOLD) t.moved = true;
+
+  if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
+    send({ type:'mouse_move', dx: dx * SENSITIVITY, dy: dy * SENSITIVITY });
+  }
+
+  const rect = pad.getBoundingClientRect();
+  tpCursor.style.left = Math.max(0, Math.min(rect.width,  e.clientX - rect.left)) + 'px';
+  tpCursor.style.top  = Math.max(0, Math.min(rect.height, e.clientY - rect.top))  + 'px';
+});
+
+function padRelease(e) {
+  const t = tpTouches[e.pointerId];
+  if (!t) return;
+  delete tpTouches[e.pointerId];
+
+  pad.classList.remove('active');
+
+  const elapsed = Date.now() - t.startTime;
+  if (!t.moved && elapsed < TAP_TIME_MS) {
+    const btn = t.rightHalf ? 'right' : 'left';
+    send({ type:'mouse_click', button: btn, pressed: true  });
+    setTimeout(() => send({ type:'mouse_click', button: btn, pressed: false }), 80);
+  }
+}
+
+pad.addEventListener('pointerup',     padRelease);
+pad.addEventListener('pointercancel', padRelease);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Screen Awake Engine
+═══════════════════════════════════════════════════════════════════════ */
+(async () => {
+  if ('wakeLock' in navigator) {
+    try { await navigator.wakeLock.request('screen'); } catch (_) {}
+  }
+})();
+</script>
+</body>
+</html>
