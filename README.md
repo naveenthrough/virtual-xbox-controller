@@ -28,7 +28,7 @@ Most setup issues happen because files are in the wrong place, or the command pr
 ```text
 📂 MyProjectFolder/
    ├── server.py          <-- The backend server script
-   └── controller.html    <-- The user interface loaded by your phone
+   └── controller.html    <-- The user interface loaded by your phone'''
 
 ## 🚀 Step-by-Step Installation
 
@@ -52,3 +52,6 @@ Paste this exact command into your command prompt window and press **Enter** to 
 
 ```bash
 pip install aiohttp pynput qrcode[pil] vgamepad
+
+
+Fix: Update layout structure
