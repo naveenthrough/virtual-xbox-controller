@@ -53,5 +53,3 @@ Paste this exact command into your command prompt window and press **Enter** to 
 ```bash
 pip install aiohttp pynput qrcode[pil] vgamepad
 
-
-Fix: Update layout structure
