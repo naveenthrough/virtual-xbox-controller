@@ -30,4 +30,25 @@ Most setup issues happen because files are in the wrong place, or the command pr
    ├── server.py          <-- The backend server script
    └── controller.html    <-- The user interface loaded by your phone
 
-Fix: Update layout structure
+## 🚀 Step-by-Step Installation
+
+### Step 1: Install the Windows Controller Driver (ViGEmBus)
+To let Python simulate a real hardware controller, Windows needs a specific driver.
+1. Go to the official driver repository: **[ViGEmBus Releases](https://github.com/ViGEm/ViGEmBus/releases/latest)**
+2. Download and run the `ViGEmBus_Setup.msi` file.
+3. Complete the setup wizard installer and **restart your PC** to finish the driver setup.
+
+---
+
+### Step 2: Open Terminal in the Correct Location
+1. Open the folder on your laptop where you saved both `server.py` and `controller.html`.
+2. Click the folder's address path bar at the very top of your Windows File Explorer window.
+3. Type `cmd` directly into that top bar and hit **Enter**. This forces the command prompt to open inside your project directory automatically.
+
+---
+
+### Step 3: Install Python Dependencies
+Paste this exact command into your command prompt window and press **Enter** to install the network and controller packages:
+
+```bash
+pip install aiohttp pynput qrcode[pil] vgamepad
