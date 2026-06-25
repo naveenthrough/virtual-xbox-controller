@@ -28,8 +28,8 @@ Most setup issues happen because files are in the wrong place, or the command pr
 ```text
 📂 MyProjectFolder/
    ├── server.py          <-- The backend server script
-   └── controller.html    <-- The user interface loaded by your phone'''
-
+   └── controller.html    <-- The user interface loaded by your phone
+```
 ## 🚀 Step-by-Step Installation
 
 ### Step 1: Install the Windows Controller Driver (ViGEmBus)
